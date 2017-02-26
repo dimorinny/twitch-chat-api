@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"github.com/dimorinny/twitch-chat-api"
-	irc "github.com/fluffle/goirc/client"
 )
 
 const (
@@ -16,32 +15,19 @@ const (
 )
 
 var (
-	config     *twitchchat.Configuration
-	connection *irc.Conn
+	config *twitchchat.Configuration
 )
 
 func initConfiguration() {
 	config = twitchchat.NewConfiguration(nickname, oauth, channel)
 }
 
-func initTwitchConnection() {
-	ircConfig := irc.NewConfig(config.Nickname)
-	ircConfig.Server = config.Host
-	ircConfig.Pass = config.Oauth
-
-	connection = irc.Client(ircConfig)
-}
-
 func init() {
 	initConfiguration()
-	initTwitchConnection()
 }
 
 func main() {
-	twitch := twitchchat.NewChat(
-		config,
-		connection,
-	)
+	twitch := twitchchat.NewChat(config)
 
 	runWithCallbacks(twitch)
 }

@@ -2,6 +2,7 @@ package twitchchat
 
 import (
 	irc "github.com/fluffle/goirc/client"
+	"github.com/fluffle/goirc/state"
 )
 
 const (
@@ -17,10 +18,25 @@ type (
 	}
 )
 
-func NewChat(config *Configuration, connection *irc.Conn) *Chat {
+func NewChat(config *Configuration) *Chat {
+	ircConfig := irc.NewConfig(config.Nickname)
+	ircConfig.Server = config.Host
+	ircConfig.Pass = config.Oauth
+
 	return &Chat{
 		config:     config,
-		connection: connection,
+		connection: irc.Client(ircConfig),
+	}
+}
+
+func NewChatWithIrc(config *Configuration, ircConfig *irc.Config) *Chat {
+	ircConfig.Me = &state.Nick{Nick: config.Nickname}
+	ircConfig.Server = config.Host
+	ircConfig.Pass = config.Oauth
+
+	return &Chat{
+		config:     config,
+		connection: irc.Client(ircConfig),
 	}
 }
 
