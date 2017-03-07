@@ -42,41 +42,46 @@ func NewChatWithIrc(config *Configuration, ircConfig *irc.Config) *Chat {
 
 func (c *Chat) ConnectWithChannels(
 	connected, disconnected chan<- struct{},
-	errorStream chan<- error,
 	message chan<- string,
-) {
+) error {
+	closeChannels := func() {
+		close(connected)
+		close(disconnected)
+		close(message)
+	}
+
 	connectedCallback := func() {
 		connected <- struct{}{}
 	}
 
 	disconnectedCallback := func() {
 		disconnected <- struct{}{}
-	}
-
-	errorCallback := func(err error) {
-		errorStream <- err
+		closeChannels()
 	}
 
 	newMessageCallback := func(newMessage string) {
 		message <- newMessage
 	}
 
-	c.ConnectWithCallbacks(
+	err := c.ConnectWithCallbacks(
 		connectedCallback,
 		disconnectedCallback,
-		errorCallback,
 		newMessageCallback,
 	)
+
+	if err != nil {
+		closeChannels()
+		return err
+	}
+
+	return nil
 }
 
 func (c *Chat) ConnectWithCallbacks(
 	connected Connected,
 	disconnected Disconnected,
-	error Error,
 	message NewMessage,
-) {
-	quit := make(chan struct{})
-
+) error {
 	c.connection.HandleFunc(connectedEvent, func(conn *irc.Conn, line *irc.Line) {
 		connected()
 		c.connection.Join("#" + c.config.Channel)
@@ -84,7 +89,6 @@ func (c *Chat) ConnectWithCallbacks(
 
 	c.connection.HandleFunc(disconnectedEvent, func(conn *irc.Conn, line *irc.Line) {
 		disconnected()
-		quit <- struct{}{}
 	})
 
 	c.connection.HandleFunc(newMessageEvent, func(conn *irc.Conn, line *irc.Line) {
@@ -94,9 +98,8 @@ func (c *Chat) ConnectWithCallbacks(
 	})
 
 	if err := c.connection.Connect(); err != nil {
-		error(err)
-		return
+		return err
 	}
 
-	<-quit
+	return nil
 }

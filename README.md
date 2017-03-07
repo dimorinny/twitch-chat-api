@@ -36,28 +36,37 @@ For receiving chat status (like connected, disconnected, new message) you can us
 ### Using callbacks api
 
 ```
-twitch.ConnectWithCallbacks(
+stop := make(chan struct{})
+defer close(stop)
+
+err := twitch.ConnectWithCallbacks(
 	func() {
 		fmt.Println("Connected")
 	},
 	func() {
 		fmt.Println("Disconnected")
-	},
-	func(err error) {
-		fmt.Println(err)
+		stop <- struct{}{}
 	},
 	func(message string) {
 		fmt.Println(message)
 	},
 )
+
+if err != nil {
+	return
+}
+
+<-stop
 ```
 
 ### Using channels api
 
 ```
+stop := make(chan struct{})
+defer close(stop)
+
 disconnected := make(chan struct{})
 connected := make(chan struct{})
-errStream := make(chan error)
 message := make(chan string)
 
 go func() {
@@ -65,17 +74,20 @@ go func() {
 		select {
 		case <-disconnected:
 			fmt.Println("Disconnected")
+			stop <- struct{}{}
 		case <-connected:
 			fmt.Println("Connected")
-		case err := <-errStream:
-			fmt.Println(err)
 		case newMessage := <-message:
 			fmt.Println(newMessage)
 		}
 	}
 }()
 
-twitch.ConnectWithChannels(connected, disconnected, errStream, message)
+if err := twitch.ConnectWithChannels(connected, disconnected, message); err != nil {
+	return
+}
+
+<-stop
 ```
 
 For more complicated usage example see [sample code](https://github.com/dimorinny/twitch-chat-api/blob/master/sample/main.go).
